@@ -38,8 +38,10 @@ def skip_prompt(ser):
 def wait_prompt(ser):
 	printf("Waiting for a prompt...")
 	while True:
-		ser.write("\x03")
-		if(ser.read(1) == 'C' and ser.read(1) == 'F' and ser.read(1) == 'E' and ser.read(1) == '>'):
+		ser.write(bytes.fromhex("03"))
+		echo = b"^C\r\n"
+		prompt = b"CFE>"
+		if ser.read(len(echo)) == echo and ser.read(len(prompt)) == prompt:
 			skip_prompt(ser)
 			printf(" OK\n")
 			return
