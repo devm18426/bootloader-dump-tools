@@ -11,16 +11,16 @@ setup(
     description='',
     entry_points={
         "console_scripts": [
-            "brntool=brntool:main",
-            "cfenand=cfenand:main",
-            "cfenandxyz=cfenandxyz:main",
-            "cfetool=cfettool:main",
-            "en751221tool=en751221tool:main",
-            "rt63365tool=rt63365tool:main",
-            "rtl867xtool=rtl867xtool:main",
-            "trl8186tool=trl8186tool:main",
-            "zyx1tool=zyx1tool:main",
-            "zyx2tool=zyx2tool:main",
+            "brntool=bootloader_dump_tools.brntool:main",
+            "cfenand=bootloader_dump_tools.cfenand:main",
+            "cfenandxyz=bootloader_dump_tools.cfenandxyz:main",
+            "cfetool=bootloader_dump_tools.cfetool:main",
+            "en751221tool=bootloader_dump_tools.en751221tool:main",
+            "rt63365tool=bootloader_dump_tools.rt63365tool:main",
+            "rtl867xtool=bootloader_dump_tools.rtl867xtool:main",
+            "trl8186tool=bootloader_dump_tools.trl8186tool:main",
+            "zyx1tool=bootloader_dump_tools.zyx1tool:main",
+            "zyx2tool=bootloader_dump_tools.zyx2tool:main",
         ]
     }
 )
