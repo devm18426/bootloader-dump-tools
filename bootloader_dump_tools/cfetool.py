@@ -24,7 +24,7 @@ import serial
 import sys
 import re
 
-lineregex = re.compile(rb'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})')
+lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})')
 #lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})(?:\s{4})(?:.{16})')
 
 def printf(string):
@@ -52,7 +52,7 @@ def memreadblock(ser, addr, size):
 	buf=''
 	m = False
 	while not m:
-		m = lineregex.match(ser.readline().strip())
+		m = lineregex.match(ser.readline().strip().decode())
 	while m:
 		bytes = [chr(int(x, 16)) for x in m.group(1)[1:].split(' ')]
 		buf+=''.join(bytes)
