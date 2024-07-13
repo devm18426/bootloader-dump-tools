@@ -24,7 +24,7 @@ import serial
 import sys
 import re
 
-lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})')
+lineregex = re.compile(r"[0-9a-f]{8}:(?P<bytes>( [0-9a-f]\s?).*) {4}")
 #lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})(?:\s{4})(?:.{16})')
 
 def printf(string):
@@ -48,15 +48,20 @@ def wait_prompt(ser):
 
 def memreadblock(ser, addr, size):
 	skip_prompt(ser)
-	ser.write(b"dm %x %d\r" %(addr, size))
-	buf=''
+	command = b"dm %x %d\r" %(addr, size)
+	ser.write(command)
+	buf = bytearray()
 	m = False
 	while not m:
-		m = lineregex.match(ser.readline().strip().decode())
+		line = ser.readline()
+		m = lineregex.match(line.strip().decode())
 	while m:
-		bytes = [chr(int(x, 16)) for x in m.group(1)[1:].split(' ')]
-		buf+=''.join(bytes)
-		m = lineregex.match(ser.readline().strip())
+		for chunk in m.group("bytes")[1:].split(' '):
+			buf += bytearray.fromhex(chunk)
+		# b = [chr(int(x, 16)) for x in m.group("bytes")[1:].split(' ')]
+		# buf += ''.join(bytes)
+		line = ser.readline().strip().decode()
+		m = lineregex.match(line)
 	return buf
 
 def memreadblock2file(ser, fd, addr, size):
