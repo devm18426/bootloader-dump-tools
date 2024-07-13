@@ -24,7 +24,7 @@ import serial
 import sys
 import re
 
-lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})')
+lineregex = re.compile(rb'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})')
 #lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})(?:\s{4})(?:.{16})')
 
 def printf(string):
