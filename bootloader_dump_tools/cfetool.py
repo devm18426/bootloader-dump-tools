@@ -18,93 +18,117 @@
 # CFE> 
 
 from __future__ import division
-from optparse import OptionParser
+
+import re
+from argparse import ArgumentParser
 
 import serial
-import sys
-import re
+from serial import SerialBase
+from tqdm import trange, tqdm
 
 lineregex = re.compile(r"[0-9a-f]{8}:(?P<bytes>( [0-9a-f]\s?).*) {4}")
-#lineregex = re.compile(r'(?:[0-9a-f]{8})(?:[:])((?: [0-9a-f]{2}){1,16})(?:\s{4})(?:.{16})')
 
-def printf(string):
-	sys.stdout.write(string)
-	sys.stdout.flush()
 
-def skip_prompt(ser):
-	while ser.read(1):
-		pass
+def skip_prompt(ser: SerialBase):
+    while ser.read(1):
+        pass
 
-def wait_prompt(ser):
-	printf("Waiting for a prompt...")
-	while True:
-		ser.write(bytes.fromhex("03"))
-		echo = b"^C\r\n"
-		prompt = b"CFE>"
-		if ser.read(len(echo)) == echo and ser.read(len(prompt)) == prompt:
-			skip_prompt(ser)
-			printf(" OK\n")
-			return
 
-def memreadblock(ser, addr, size):
-	skip_prompt(ser)
-	command = b"dm %x %d\r" %(addr, size)
-	ser.write(command)
-	buf = bytearray()
-	m = False
-	while not m:
-		line = ser.readline()
-		m = lineregex.match(line.strip().decode())
-	while m:
-		for chunk in m.group("bytes")[1:].split(' '):
-			buf += bytearray.fromhex(chunk)
-		# b = [chr(int(x, 16)) for x in m.group("bytes")[1:].split(' ')]
-		# buf += ''.join(bytes)
-		line = ser.readline().strip().decode()
-		m = lineregex.match(line)
-	return buf
+def wait_prompt(ser: SerialBase):
+    tqdm.write("Waiting for a prompt...", end="")
+    while True:
+        ser.write(bytes.fromhex("03"))
+        echo = b"^C\r\n"
+        prompt = b"CFE>"
 
-def memreadblock2file(ser, fd, addr, size):
-	while True:
-		buf = memreadblock(ser, addr, size)
-		if len(buf) == size:
-			break
-		printf(' [!]\n')
-	printf(' [.]\n')
-	fd.write(buf)
-	return
+        line = ser.read(len(echo))
+        skip = False
 
-def memread(ser, path, addr, size, block):
-	wait_prompt(ser)
-	total_size = size
-	fd = open(path, "wb")
-	while size > 0:
-		cur_size = (total_size - size)
-		printf('%d%% (%d/%d)' %((cur_size / total_size) * 100, cur_size, total_size))
-		if size > block:
-			memreadblock2file(ser, fd, addr, block)
-			size -= block
-			addr += block
-		else:
-			memreadblock2file(ser, fd, addr, size)
-			size = 0
-	fd.close()
-	return
+        if line == echo and ser.read(len(prompt)) == prompt:
+            skip = True
+        elif line == prompt:
+            skip = True
+
+        if skip:
+            skip_prompt(ser)
+            tqdm.write(" OK")
+            return
+
+
+def memreadblock(ser: SerialBase, addr, size):
+    skip_prompt(ser)
+    command = b"dm %x %d\r" % (addr, size)
+    ser.write(command)
+    buf = bytearray()
+    m = False
+    while not m:
+        line = ser.readline()
+        m = lineregex.match(line.strip().decode())
+    while m:
+        for chunk in m.group("bytes")[1:].split(' '):
+            buf += bytearray.fromhex(chunk)
+        line = ser.readline().strip().decode()
+        m = lineregex.match(line)
+    return buf
+
+
+def memreadblock2file(ser: SerialBase, fd, addr, size):
+    while True:
+        buf = memreadblock(ser, addr, size)
+        if len(buf) == size:
+            break
+        tqdm.write(f"Expected size {size}, got {len(buf)}")
+
+    fd.write(buf)
+    return len(buf)
+
+
+def memread(ser: SerialBase, path, addr, size, block, prog):
+    wait_prompt(ser)
+
+    end = addr + size
+
+    fd = None
+    if path is not None:
+        fd = open(path, "wb")
+
+    iterable = range(addr, end, block)
+
+    if prog:
+        iterable = trange(
+            addr, end, block,
+            unit="chunk",
+            desc="Dumping firmware",
+        )
+
+    for pos in iterable:
+        block = min(block, end - pos)
+
+        if path is not None:
+            memreadblock2file(ser, fd, pos, block)
+            fd.flush()
+        else:
+            tqdm.write(memreadblock(ser, pos, block), end="")
+
+    if path is not None:
+        fd.close()
+
 
 def main():
-	optparser = OptionParser("usage: %prog [options]",version="%prog 0.1")
-	optparser.add_option("--block", dest="block", help="buffer block size", default="10240",metavar="block")
-	optparser.add_option("--serial", dest="serial", help="specify serial port", default="/dev/ttyUSB0", metavar="dev")
-	optparser.add_option("--read", dest="read", help="read mem to file", metavar="path")
-	optparser.add_option("--addr", dest="addr",help="mem address", metavar="addr")
-	optparser.add_option("--size", dest="size",help="size to copy", metavar="bytes")
-	(options, args) = optparser.parse_args()
-	if len(args) != 0:
-		optparser.error("incorrect number of arguments")
-	ser = serial.Serial(options.serial, 115200, timeout=1)
-	if options.read:
-		memread(ser, options.read, int(options.addr, 0), int(options.size, 0), int(options.block, 0))
-	return
+    def int_parse(i): return int(i, 0)
+
+    parser = ArgumentParser()
+    parser.add_argument("--block", help="buffer block size", default="10240", type=int_parse)
+    parser.add_argument("--serial", dest="serial", help="specify serial port", default="/dev/ttyUSB0", metavar="dev")
+    parser.add_argument("--no-prog", dest="prog", action="store_false", default=True)
+    parser.add_argument("--output", help="Path to read to")
+    parser.add_argument("addr", help="mem address", type=int_parse)
+    parser.add_argument("size", help="size to copy", metavar="bytes", type=int_parse)
+    args = parser.parse_args()
+
+    ser = serial.Serial(args.serial, 115200, timeout=1)
+    memread(ser, args.output, args.addr, args.size, args.block, args.prog)
+
 
 if __name__ == '__main__':
-	main()
+    main()

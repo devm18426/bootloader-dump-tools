@@ -2,3 +2,4 @@
 *.dump
 *.bin
 .idea
+*.egg-info

@@ -9,6 +9,10 @@ setup(
     author='',
     author_email='',
     description='',
+    install_requires=[
+        "pyserial",
+        "tqdm",
+    ],
     entry_points={
         "console_scripts": [
             "brntool=bootloader_dump_tools.brntool:main",
