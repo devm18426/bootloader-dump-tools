@@ -97,8 +97,8 @@ def memread(ser: SerialBase, path, addr, size, block, prog):
     if prog:
         iterable = trange(
             addr, end, block,
-            unit="chunk",
-            desc="Dumping firmware",
+            unit="block",
+            desc="Dumping",
         )
 
     for pos in iterable:
